@@ -75,35 +75,10 @@ const deleteUsuario = async (req, res) => {
     }
 };
 
-// Cambiar rol de un usuario (solo admin)
-const changesRoluser = async (req, res) => {
-    const { id } = req.params;
-    const { rol } = req.body;
-
-    if (!rol) {
-        return res.status(400).json({ status: 400, message: 'Debe especificar un rol' });
-    }
-
-    try {
-        const usuario = await Usuario.findByPk(id);
-        if (!usuario) {
-            return res.status(404).json({ status: 404, message: 'Usuario no encontrado' });
-        }
-
-        usuario.rol = rol; // cambiar el rol
-        await usuario.save();
-
-        res.status(200).json({ status: 200, message: 'Rol actualizado exitosamente', data: usuario });
-    } catch (error) {
-        res.status(500).json({ status: 500, message: 'Error al cambiar rol', error: error.message });
-    }
-};
-
 module.exports = {
     getUsuarios,
     getUsuarioById,
     createUsuario,
     updateUsuario,
-    deleteUsuario,
-    changesRoluser // <-- agregamos esta exportación
+    deleteUsuario
 };
