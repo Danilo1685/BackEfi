@@ -1,73 +1,73 @@
-const { Usuario } = require('../models');
+const { User } = require('../models');
 
 // Obtener todos los usuarios
-const getUsuarios = async (req, res) => {
+const getUsers = async (req, res) => {
     try {
-        const usuarios = await Usuario.findAll();
-        res.json({ status: 200, data: usuarios });
+        const users = await User.findAll();
+        res.json({ status: 200, data: users });
     } catch (error) {
         res.status(500).json({ status: 500, message: 'Error al obtener usuarios', error: error.message });
     }
 };
 
 // Obtener usuario por ID
-const getUsuarioById = async (req, res) => {
+const getUserById = async (req, res) => {
     try {
-        const usuario = await Usuario.findByPk(req.params.id);
-        if (!usuario) {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
             return res.status(404).json({ status: 404, message: 'Usuario no encontrado' });
         }
-        res.json({ status: 200, data: usuario });
+        res.json({ status: 200, data: user });
     } catch (error) {
         res.status(500).json({ status: 500, message: 'Error al obtener usuario', error: error.message });
     }
 };
 
-// Crear nuevo usuario
-const createUsuario = async (req, res) => {
-    const { nombre, email, edad } = req.body;
+// Crear new usuario
+const createUser = async (req, res) => {
+    const { name, email, age } = req.body;
     try {
-        if (!nombre || !email || !edad) {
+        if (!name || !email || !age) {
             return res.status(400).json({ status: 400, message: 'Faltan campos obligatorios' });
         }
 
-        const nuevoUsuario = await Usuario.create({ nombre, email, edad });
-        res.status(201).json({ status: 201, data: nuevoUsuario, message: 'Usuario creado exitosamente' });
+        const newUser = await User.create({ name, email, age });
+        res.status(201).json({ status: 201, data: newUser, message: 'Usuario creado exitosamente' });
     } catch (error) {
         res.status(500).json({ status: 500, message: 'Error al crear usuario', error: error.message });
     }
 };
 
 // Editar usuario
-const updateUsuario = async (req, res) => {
+const updateUser = async (req, res) => {
     try {
-        const usuario = await Usuario.findByPk(req.params.id);
-        if (!usuario) {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
             return res.status(404).json({ status: 404, message: 'Usuario no encontrado' });
         }
 
-        const { nombre, email, edad } = req.body;
-        usuario.nombre = nombre || usuario.nombre;
-        usuario.email = email || usuario.email;
-        usuario.edad = edad || usuario.edad;
+        const { name, email, age } = req.body;
+        user.name = name || user.name;
+        user.email = email || user.email;
+        user.age = age || user.age;
 
-        await usuario.save();
+        await user.save();
 
-        res.status(200).json({ status: 200, message: 'Usuario editado exitosamente', data: usuario });
+        res.status(200).json({ status: 200, message: 'Usuario editado exitosamente', data: user });
     } catch (error) {
         res.status(500).json({ status: 500, message: 'Error al editar usuario', error: error.message });
     }
 };
 
 // Eliminar usuario
-const deleteUsuario = async (req, res) => {
+const deleteUser = async (req, res) => {
     try {
-        const usuario = await Usuario.findByPk(req.params.id);
-        if (!usuario) {
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
             return res.status(404).json({ status: 404, message: 'Usuario no encontrado' });
         }
 
-        await usuario.destroy();
+        await user.destroy();
 
         res.status(200).json({ status: 200, message: 'Usuario eliminado exitosamente' });
     } catch (error) {
@@ -76,9 +76,9 @@ const deleteUsuario = async (req, res) => {
 };
 
 module.exports = {
-    getUsuarios,
-    getUsuarioById,
-    createUsuario,
-    updateUsuario,
-    deleteUsuario
+    getUsers,
+    getUserById,
+    createUser,
+    updateUser,
+    deleteUser
 };

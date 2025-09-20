@@ -6,10 +6,10 @@ const port = 3000
 app.use(cors())
 app.use(express.json())
 
-const usuariosRouter = require('./routes/users.routes');
+const usersRouter = require('./routes/users.routes');
 const authRouter = require('./routes/auth.routes')
 
-app.use('/usuarios', usuariosRouter)
+app.use('/usuarios', usersRouter)
 app.use('/auth', authRouter)
 
 app.listen(port, () => {

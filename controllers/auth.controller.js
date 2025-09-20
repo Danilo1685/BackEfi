@@ -1,21 +1,21 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Usuario } = require('../models');
+const { User } = require('../models');
 
 const register = async (req, res) => {
 
-    const { nombre, email, edad, password, rol } = req.body
+    const { name, email, age, password, rol } = req.body
 
     try {
-        const userExist = await Usuario.findOne({ where: { email } })
+        const userExist = await User.findOne({ where: { email } })
         if (userExist) return res.status(400).json({ message: 'El usuario ya existe' })
 
         const hashedPassword = await bcrypt.hash(password, 10)
-        const newUser = await Usuario.create(
+        const newUser = await User.create(
             {
-                nombre,
+                name,
                 email,
-                edad,
+                age,
                 password: hashedPassword,
                 rol: rol || 'cliente'
             })
@@ -36,13 +36,17 @@ const login = async (req, res) => {
         const validPassword = await bcrypt.compare(password, userExist.password)
         if (!validPassword) return res.status(403).json({ message: 'Contraseña incorrecta' })
 
-        const token = jwt.sign({ id: userExist.id, rol: userExist.rol }, 'secreto1234', { expiresIn: '1h' })
+        const token = jwt.sign(
+        { id: userExist.id, rol: userExist.rol },
+        process.env.JWT_SECRET || 'secreto1234',
+        { expiresIn: '1h' }
+        );
 
         const user= {
             id: userExist.id,
-            nombre: userExist.nombre,
+            name: userExist.name,
             email: userExist.email,
-            edad: userExist.edad,
+            age: userExist.age,
             rol: userExist.rol
         }
 
@@ -53,3 +57,6 @@ const login = async (req, res) => {
 }
 
 module.exports = { register, login }
+
+
+
