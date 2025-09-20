@@ -8,7 +8,7 @@ const crearBaseDeDatos = async () => {
             password: 'root1234'
         })
 
-        await connection.query('CREATE DATABASE IF NOT EXISTS crud_db')
+        await connection.query('CREATE DATABASE IF NOT EXISTS ')
         console.log("base de datos creada exitosamente")
         await connection.end()
     } catch (error) {
@@ -17,3 +17,4 @@ const crearBaseDeDatos = async () => {
 }
 
 crearBaseDeDatos()
+
