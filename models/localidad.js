@@ -10,6 +10,7 @@ module.exports = (sequelize, DataTypes) => {
     nombre: {
       type: DataTypes.STRING,
       allowNull: false,
+      activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
     }
   }, {
     sequelize,
