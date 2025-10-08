@@ -11,7 +11,8 @@ module.exports = (sequelize, DataTypes) => {
   Venta.init({
     fecha_venta: { type: DataTypes.DATE, allowNull: false },
     monto_total: { type: DataTypes.DECIMAL, allowNull: false },
-    estado: { type: DataTypes.ENUM('finalizada', 'cancelada'), allowNull: false }
+    estado: { type: DataTypes.ENUM('finalizada', 'cancelada'), allowNull: false },
+    activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
   }, {
     sequelize,
     modelName: 'Venta',

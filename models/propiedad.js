@@ -15,6 +15,7 @@ class Propiedad extends Model {
     estado: { type: DataTypes.ENUM('disponible', 'alquilada', 'vendida'), allowNull: false },
     descripcion: DataTypes.TEXT,
     tamaño: DataTypes.DECIMAL,
+    activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
   }, {
     sequelize,
     modelName: 'Propiedad',
