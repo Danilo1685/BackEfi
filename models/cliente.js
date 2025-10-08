@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
   Cliente.init({
     documento_identidad: { type: DataTypes.STRING, unique: true, allowNull: false },
     telefono: DataTypes.STRING,
+    activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
   }, {
     sequelize,
     modelName: 'Cliente',
