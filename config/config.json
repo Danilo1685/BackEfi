@@ -1,7 +1,7 @@
 {
   "development": {
     "username": "root",
-    "password": "Root751862934@",
+    "password": "root1234",
     "database": "efiJs",
     "host": "127.0.0.1",
     "dialect": "mysql"
