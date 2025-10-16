@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
 
 const register = async (req, res) => {
-    // ✅ CORREGIDO: usar 'nombre' y 'edad' como en el modelo
     const { nombre, email, edad, password, rol } = req.body;
 
     try {
@@ -14,17 +13,15 @@ const register = async (req, res) => {
             });
         }
 
-        // ✅ CORREGIDO: NO hashear manualmente - el hook del modelo lo hace
         const newUser = await Usuario.create({
-            nombre,     // ✅ Coincide con el modelo
+            nombre,     
             email,
-            edad,       // ✅ Coincide con el modelo
-            password,   // ✅ Sin hashear - el hook lo hará
+            edad,      
+            password,   
             rol: rol || 'cliente',
             activo: true
         });
 
-        // No devolver la contraseña
         const userResponse = {
             id: newUser.id,
             nombre: newUser.nombre,
@@ -83,9 +80,9 @@ const login = async (req, res) => {
         // Datos del usuario para la respuesta
         const user = {
             id: userExist.id,
-            nombre: userExist.nombre,  // ✅ Corregido
+            nombre: userExist.nombre,  
             email: userExist.email,
-            edad: userExist.edad,      // ✅ Corregido
+            edad: userExist.edad,     
             rol: userExist.rol
         };
 
