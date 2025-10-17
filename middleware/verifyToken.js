@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { Usuario } = require('../models'); // ✅ Cambiar User por Usuario
 
 const verifyToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -11,8 +11,8 @@ const verifyToken = async (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secreto1234');
 
-        // Opcional: cargar el usuario completo desde la base de datos
-        const user = await User.findByPk(decoded.id);
+        // ✅ Ahora usa Usuario en lugar de User
+        const user = await Usuario.findByPk(decoded.id);
         if (!user) return res.status(401).json({ message: 'Usuario no encontrado' });
 
         // Guardamos datos del usuario en la request
@@ -21,8 +21,10 @@ const verifyToken = async (req, res, next) => {
         req.userRol = user.rol; // rol
         next();
     } catch (error) {
+        console.error('Error en verifyToken:', error); // ✅ Agregado para debug
         return res.status(401).json({ message: 'Token inválido o expirado' });
     }
 };
 
 module.exports = verifyToken;
+
