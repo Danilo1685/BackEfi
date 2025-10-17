@@ -7,7 +7,7 @@ const crearBaseDeDatos = async () => {
         const connection = await mysql.createConnection({
             host: 'localhost',
             user: 'root',
-            password: 'Root751862934@'  // ✅ Usar la contraseña correcta de config.json
+            password: ''  // ✅ Usar la contraseña correcta de config.json
         });
 
         await connection.query('CREATE DATABASE IF NOT EXISTS efiJs');
