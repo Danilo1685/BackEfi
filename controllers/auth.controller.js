@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { Usuario } = require('../models');
 
 const register = async (req, res) => {
-    const { nombre, email, edad, password, rol } = req.body;
+    const { name, email, edad, password, rol } = req.body;
 
     try {
         const userExist = await Usuario.findOne({ where: { email } });
@@ -14,7 +14,7 @@ const register = async (req, res) => {
         }
 
         const newUser = await Usuario.create({
-            nombre,     
+            nombre: name,     
             email,
             edad,      
             password,   
