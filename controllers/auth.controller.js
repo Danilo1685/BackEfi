@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Usuario } = require('../models');
+const { Usuario } = require('../models'); // ✅ Asegurate que sea Usuario, no User
 
 const register = async (req, res) => {
     const { name, email, edad, password, rol } = req.body;
@@ -70,11 +70,11 @@ const login = async (req, res) => {
             });
         }
 
-        // Generar token JWT
+        // Generar token JWT (válido por 8 horas)
         const token = jwt.sign(
             { id: userExist.id, rol: userExist.rol },
             process.env.JWT_SECRET || 'secreto1234',
-            { expiresIn: '1h' }
+            { expiresIn: '8h' } // ✅ Aumentado a 8 horas
         );
 
         // Datos del usuario para la respuesta
@@ -101,4 +101,30 @@ const login = async (req, res) => {
     }
 };
 
-module.exports = { register, login };
+// ✅ Nueva función para verificar sesión
+const verifySession = async (req, res) => {
+    try {
+        // El middleware verifyToken ya validó el token y agregó req.user
+        const user = {
+            id: req.user.id,
+            nombre: req.user.nombre,
+            email: req.user.email,
+            edad: req.user.edad,
+            rol: req.user.rol
+        };
+        
+        res.json({ 
+            valid: true, 
+            user 
+        });
+    } catch (error) {
+        console.error('Error en verifySession:', error);
+        res.status(401).json({ 
+            valid: false, 
+            message: 'Sesión inválida' 
+        });
+    }
+};
+
+// ✅ Exportar todas las funciones
+module.exports = { register, login, verifySession };
