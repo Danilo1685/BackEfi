@@ -1,6 +1,6 @@
 const mysql = require('mysql2/promise');
 const db = require('./models');
-
+// 1️⃣ Crear la base de datos si no existe
 // 1️⃣ Crear la base de datos si no existe
 const crearBaseDeDatos = async () => {
     try {
