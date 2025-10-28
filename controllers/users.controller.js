@@ -1,6 +1,10 @@
 const { Usuario } = require('../models');
 
-// Obtener todos los usuarios
+// ========================================
+// USUARIOS ACTIVOS
+// ========================================
+
+// Obtener todos los usuarios ACTIVOS
 const getUsuarios = async (req, res) => {
     try {
         const users = await Usuario.findAll({
@@ -18,7 +22,7 @@ const getUsuarios = async (req, res) => {
     }
 };
 
-// Obtener usuario por ID
+// Obtener usuario por ID (solo si está activo)
 const getUsuarioById = async (req, res) => {
     try {
         const user = await Usuario.findOne({
@@ -56,7 +60,7 @@ const createUsuario = async (req, res) => {
             });
         }
 
-        // Verificar si el email ya existe
+        // Verificar si el email ya existe (incluyendo usuarios inactivos)
         const existingUser = await Usuario.findOne({ where: { email } });
         if (existingUser) {
             return res.status(400).json({
@@ -161,7 +165,7 @@ const updateUsuario = async (req, res) => {
     }
 };
 
-// Eliminar usuario (lógico)
+// ⭐ ELIMINACIÓN LÓGICA (cambiar activo a false)
 const deleteUsuario = async (req, res) => {
     try {
         const user = await Usuario.findOne({
@@ -174,6 +178,14 @@ const deleteUsuario = async (req, res) => {
             return res.status(404).json({ 
                 status: 404, 
                 message: 'Usuario no encontrado' 
+            });
+        }
+
+        // No permitir que un usuario se desactive a sí mismo
+        if (req.userId === user.id) {
+            return res.status(400).json({
+                status: 400,
+                message: 'No puedes desactivar tu propia cuenta'
             });
         }
 
@@ -194,10 +206,117 @@ const deleteUsuario = async (req, res) => {
     }
 };
 
+// ========================================
+// USUARIOS INACTIVOS (SOLO ADMIN)
+// ========================================
+
+// ⭐ NUEVO: Obtener usuarios INACTIVOS
+const getUsuariosInactivos = async (req, res) => {
+    try {
+        const users = await Usuario.findAll({
+            where: { activo: false },
+            attributes: { exclude: ['password'] },
+            order: [['updatedAt', 'DESC']]
+        });
+        res.json({ status: 200, data: users });
+    } catch (error) {
+        console.error('Error al obtener usuarios inactivos:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al obtener usuarios inactivos', 
+            error: error.message 
+        });
+    }
+};
+
+// ⭐ NUEVO: Restaurar usuario (cambiar activo a true)
+const restaurarUsuario = async (req, res) => {
+    try {
+        const user = await Usuario.findOne({
+            where: { 
+                id: req.params.id,
+                activo: false 
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ 
+                status: 404, 
+                message: 'Usuario no encontrado o ya está activo' 
+            });
+        }
+
+        user.activo = true;
+        await user.save();
+
+        const userResponse = {
+            id: user.id,
+            nombre: user.nombre,
+            email: user.email,
+            edad: user.edad,
+            rol: user.rol,
+            activo: user.activo
+        };
+
+        res.status(200).json({ 
+            status: 200, 
+            message: 'Usuario restaurado exitosamente',
+            data: userResponse
+        });
+    } catch (error) {
+        console.error('Error al restaurar usuario:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al restaurar usuario', 
+            error: error.message 
+        });
+    }
+};
+
+// ⭐ NUEVO: Eliminación FÍSICA/PERMANENTE (solo admin)
+const deleteUsuarioPermanente = async (req, res) => {
+    try {
+        const user = await Usuario.findByPk(req.params.id);
+
+        if (!user) {
+            return res.status(404).json({ 
+                status: 404, 
+                message: 'Usuario no encontrado' 
+            });
+        }
+
+        // No permitir que un admin se elimine a sí mismo
+        if (req.userId === user.id) {
+            return res.status(400).json({
+                status: 400,
+                message: 'No puedes eliminar tu propia cuenta'
+            });
+        }
+
+        // Eliminar físicamente de la base de datos
+        await user.destroy();
+
+        res.status(200).json({ 
+            status: 200, 
+            message: '⚠️ Usuario eliminado permanentemente de la base de datos' 
+        });
+    } catch (error) {
+        console.error('Error al eliminar usuario permanentemente:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al eliminar usuario permanentemente', 
+            error: error.message 
+        });
+    }
+};
+
 module.exports = {
     getUsuarios,
     getUsuarioById,
     createUsuario,
     updateUsuario,
-    deleteUsuario
+    deleteUsuario,
+    getUsuariosInactivos,
+    restaurarUsuario,
+    deleteUsuarioPermanente
 };
