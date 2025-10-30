@@ -1,8 +1,6 @@
 const { Alquiler, Propiedad, Cliente, Usuario } = require('../models');
 
-// ========================================
-// OBTENER TODOS LOS ALQUILERES (Admin/Agente)
-// ========================================
+
 const getAllAlquileres = async (req, res) => {
     try {
         const alquileres = await Alquiler.findAll({ 
@@ -36,14 +34,156 @@ const getAllAlquileres = async (req, res) => {
     }
 };
 
-// ========================================
-// OBTENER ALQUILERES POR CLIENTE
-// ========================================
+
+const getSolicitudesPendientes = async (req, res) => {
+    try {
+        const solicitudes = await Alquiler.findAll({ 
+            where: { 
+                activo: true,
+                estado: 'pendiente'
+            },
+            include: [
+                { 
+                    model: Propiedad,
+                    attributes: ['id', 'direccion', 'precio', 'estado', 'descripcion']
+                },
+                {
+                    model: Cliente,
+                    attributes: ['id', 'documento_identidad', 'telefono'],
+                    include: [
+                        {
+                            model: Usuario,
+                            attributes: ['id', 'nombre', 'email']
+                        }
+                    ]
+                }
+            ],
+            order: [['createdAt', 'ASC']]
+        });
+        res.json({ status: 200, data: solicitudes });
+    } catch (error) {
+        console.error('Error al obtener solicitudes pendientes:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al obtener solicitudes pendientes', 
+            error: error.message 
+        });
+    }
+};
+
+
+const aprobarSolicitud = async (req, res) => {
+    try {
+        const alquiler = await Alquiler.findOne({
+            where: { 
+                id: req.params.id,
+                activo: true,
+                estado: 'pendiente'
+            }
+        });
+
+        if (!alquiler) {
+            return res.status(404).json({ 
+                status: 404, 
+                message: 'Solicitud no encontrada o ya fue procesada' 
+            });
+        }
+
+        // Verificar que la propiedad siga disponible
+        const propiedad = await Propiedad.findByPk(alquiler.id_propiedad);
+        if (!propiedad || propiedad.estado !== 'disponible') {
+            return res.status(400).json({
+                status: 400,
+                message: 'La propiedad ya no está disponible'
+            });
+        }
+
+        // Actualizar alquiler a activo
+        alquiler.estado = 'activo';
+        await alquiler.save();
+
+        // Actualizar estado de la propiedad
+        propiedad.estado = 'alquilada';
+        await propiedad.save();
+
+        // Cargar relaciones para la respuesta
+        const alquilerWithRelations = await Alquiler.findOne({
+            where: { id: alquiler.id },
+            include: [
+                { 
+                    model: Propiedad,
+                    attributes: ['id', 'direccion', 'precio', 'estado']
+                },
+                {
+                    model: Cliente,
+                    attributes: ['id', 'documento_identidad', 'telefono'],
+                    include: [
+                        {
+                            model: Usuario,
+                            attributes: ['id', 'nombre', 'email']
+                        }
+                    ]
+                }
+            ]
+        });
+
+        res.json({ 
+            status: 200, 
+            data: alquilerWithRelations, 
+            message: 'Solicitud aprobada exitosamente' 
+        });
+    } catch (error) {
+        console.error('Error al aprobar solicitud:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al aprobar solicitud', 
+            error: error.message 
+        });
+    }
+};
+
+
+const rechazarSolicitud = async (req, res) => {
+    try {
+        const alquiler = await Alquiler.findOne({
+            where: { 
+                id: req.params.id,
+                activo: true,
+                estado: 'pendiente'
+            }
+        });
+
+        if (!alquiler) {
+            return res.status(404).json({ 
+                status: 404, 
+                message: 'Solicitud no encontrada o ya fue procesada' 
+            });
+        }
+
+        // Cambiar estado a cancelado
+        alquiler.estado = 'cancelado';
+        await alquiler.save();
+
+        res.json({ 
+            status: 200, 
+            message: 'Solicitud rechazada exitosamente' 
+        });
+    } catch (error) {
+        console.error('Error al rechazar solicitud:', error);
+        res.status(500).json({ 
+            status: 500, 
+            message: 'Error al rechazar solicitud', 
+            error: error.message 
+        });
+    }
+};
+
+
 const getAlquilerByClient = async (req, res) => {
     try {
         const alquileres = await Alquiler.findAll({ 
             where: { 
-                id_cliente: req.params.clientId, // ✅ Corregido: usar clientId
+                id_cliente: req.params.clientId,
                 activo: true
             }, 
             include: [
@@ -75,9 +215,7 @@ const getAlquilerByClient = async (req, res) => {
     }
 };
 
-// ========================================
-// CREAR ALQUILER
-// ========================================
+
 const createAlquiler = async (req, res) => {
     try {
         const { id_propiedad, id_cliente, fecha_inicio, fecha_fin, monto_mensual } = req.body;
@@ -108,7 +246,6 @@ const createAlquiler = async (req, res) => {
             });
         }
 
-        // Verificar que el cliente existe
         const cliente = await Cliente.findOne({
             where: {
                 id: id_cliente,
@@ -122,18 +259,16 @@ const createAlquiler = async (req, res) => {
             });
         }
 
+        // ✅ Crear como PENDIENTE (solicitud)
         const alquiler = await Alquiler.create({
             id_propiedad,
             id_cliente,
             fecha_inicio,
             fecha_fin,
             monto_mensual,
-            estado: 'activo',
+            estado: 'pendiente',
             activo: true
         });
-
-        propiedad.estado = 'alquilada';
-        await propiedad.save();
 
         // Cargar relaciones para la respuesta
         const alquilerWithRelations = await Alquiler.findOne({
@@ -159,7 +294,7 @@ const createAlquiler = async (req, res) => {
         res.status(201).json({ 
             status: 201, 
             data: alquilerWithRelations, 
-            message: 'Alquiler creado exitosamente' 
+            message: 'Solicitud de alquiler creada exitosamente' 
         });
     } catch (error) {
         console.error('Error al crear alquiler:', error);
@@ -171,9 +306,7 @@ const createAlquiler = async (req, res) => {
     }
 };
 
-// ========================================
-// ACTUALIZAR ALQUILER
-// ========================================
+
 const updateAlquiler = async (req, res) => {
     try {
         const alquiler = await Alquiler.findOne({
@@ -243,9 +376,7 @@ const updateAlquiler = async (req, res) => {
     }
 };
 
-// ========================================
-// ELIMINACIÓN LÓGICA (Cancelar/Desactivar)
-// ========================================
+
 const deleteAlquiler = async (req, res) => {
     try {
         const alquiler = await Alquiler.findOne({
@@ -261,7 +392,6 @@ const deleteAlquiler = async (req, res) => {
             });
         }
 
-        // Actualizar estado de la propiedad antes de desactivar
         const propiedad = await Propiedad.findByPk(alquiler.id_propiedad);
         if (propiedad && propiedad.estado === 'alquilada') {
             propiedad.estado = 'disponible';
@@ -286,9 +416,7 @@ const deleteAlquiler = async (req, res) => {
     }
 };
 
-// ========================================
-// ELIMINACIÓN FÍSICA (Solo Admin) - OPCIONAL
-// ========================================
+
 const deleteAlquilerPermanente = async (req, res) => {
     try {
         const alquiler = await Alquiler.findByPk(req.params.id);
@@ -299,7 +427,6 @@ const deleteAlquilerPermanente = async (req, res) => {
             });
         }
 
-        // Restaurar estado de la propiedad
         const propiedad = await Propiedad.findByPk(alquiler.id_propiedad);
         if (propiedad && propiedad.estado === 'alquilada') {
             propiedad.estado = 'disponible';
@@ -324,6 +451,9 @@ const deleteAlquilerPermanente = async (req, res) => {
 
 module.exports = {
     getAllAlquileres,
+    getSolicitudesPendientes,
+    aprobarSolicitud,
+    rechazarSolicitud,
     getAlquilerByClient,
     createAlquiler,
     updateAlquiler,
