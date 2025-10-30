@@ -5,14 +5,18 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       Venta.belongsTo(models.Propiedad, { foreignKey: 'id_propiedad' });
       Venta.belongsTo(models.Cliente, { foreignKey: 'id_cliente' });
-      Venta.belongsTo(models.Usuario, { foreignKey: 'usuarioId' }); // el agente/admin que registró la venta
+      Venta.belongsTo(models.Usuario, { foreignKey: 'usuarioId' });
     }
   }
   Venta.init({
     fecha_venta: { type: DataTypes.DATE, allowNull: false },
     monto_total: { type: DataTypes.DECIMAL, allowNull: false },
-    estado: { type: DataTypes.ENUM('finalizada', 'cancelada'), allowNull: false },
-    activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
+    estado: { 
+      type: DataTypes.ENUM('pendiente', 'aprobado', 'finalizada', 'cancelada'), 
+      defaultValue: 'pendiente',
+      allowNull: false 
+    },
+    activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
   }, {
     sequelize,
     modelName: 'Venta',

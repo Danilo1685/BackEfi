@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const pdfRoutes = require('./routers/pdf.routes');
+
 require('dotenv').config();
 
 const app = express();
@@ -22,6 +24,7 @@ app.use('/api/clientes', require('./routers/cliente.routes'));
 app.use('/api/alquileres', require('./routers/alquiler.routes'));
 app.use('/api/ventas', require('./routers/venta.routes'));
 app.use('/api/tipos-propiedad', require('./routers/tipoPropiedad.routes'));
+app.use('/api/pdf', pdfRoutes);
 
 // Ruta de prueba
 app.get('/api/health', (req, res) => {

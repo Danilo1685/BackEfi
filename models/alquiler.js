@@ -11,8 +11,11 @@ module.exports = (sequelize, DataTypes) => {
     fecha_inicio: { type: DataTypes.DATE, allowNull: false },
     fecha_fin: { type: DataTypes.DATE, allowNull: false },
     monto_mensual: { type: DataTypes.DECIMAL, allowNull: false },
-    estado: { type: DataTypes.ENUM('activo', 'finalizado', 'cancelado'), defaultValue: 'activo' },
-    activo: { type: DataTypes.BOOLEAN, allowNull:false ,  defaultValue: true }
+    estado: { 
+      type: DataTypes.ENUM('pendiente', 'aprobado', 'activo', 'finalizado', 'cancelado'), 
+      defaultValue: 'pendiente' 
+    },
+    activo: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true }
   }, {
     sequelize,
     modelName: 'Alquiler',
