@@ -1,9 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { Usuario } = require('../models'); // ✅ Asegurate que sea Usuario, no User
+const { Usuario, Cliente } = require('../models'); // ✅ Importar Cliente
 
 const register = async (req, res) => {
-    const { name, email, edad, password, rol } = req.body;
+    const { name, email, edad, password, rol, documento_identidad, telefono } = req.body;
 
     try {
         const userExist = await Usuario.findOne({ where: { email } });
@@ -21,6 +21,16 @@ const register = async (req, res) => {
             rol: rol || 'cliente',
             activo: true
         });
+
+        // ✅ NUEVO: Si el rol es 'cliente', crear automáticamente el registro en la tabla Cliente
+        if ((rol || 'cliente') === 'cliente') {
+            await Cliente.create({
+                documento_identidad: documento_identidad || email, // ✅ Usar email si no hay documento
+                telefono: telefono || null,
+                id_usuario: newUser.id,
+                activo: true
+            });
+        }
 
         const userResponse = {
             id: newUser.id,
@@ -74,7 +84,7 @@ const login = async (req, res) => {
         const token = jwt.sign(
             { id: userExist.id, rol: userExist.rol },
             process.env.JWT_SECRET || 'secreto1234',
-            { expiresIn: '8h' } // ✅ Aumentado a 8 horas
+            { expiresIn: '8h' }
         );
 
         // Datos del usuario para la respuesta
@@ -85,6 +95,19 @@ const login = async (req, res) => {
             edad: userExist.edad,     
             rol: userExist.rol
         };
+
+        // ✅ NUEVO: Si es cliente, incluir también el clienteId
+        if (userExist.rol === 'cliente') {
+            const cliente = await Cliente.findOne({
+                where: { 
+                    id_usuario: userExist.id,
+                    activo: true 
+                }
+            });
+            if (cliente) {
+                user.clienteId = cliente.id;
+            }
+        }
 
         res.json({ 
             message: 'Inicio de sesión exitoso', 
@@ -112,6 +135,19 @@ const verifySession = async (req, res) => {
             edad: req.user.edad,
             rol: req.user.rol
         };
+
+        // ✅ NUEVO: Si es cliente, incluir también el clienteId
+        if (req.user.rol === 'cliente') {
+            const cliente = await Cliente.findOne({
+                where: { 
+                    id_usuario: req.user.id,
+                    activo: true 
+                }
+            });
+            if (cliente) {
+                user.clienteId = cliente.id;
+            }
+        }
         
         res.json({ 
             valid: true, 
