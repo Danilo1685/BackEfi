@@ -1,4 +1,24 @@
 const { Usuario } = require('../models');
+const { ValidationError } = require('sequelize');
+
+// ========================================
+// FUNCIÓN AUXILIAR PARA MANEJAR ERRORES DE VALIDACIÓN
+// ========================================
+const handleValidationError = (error) => {
+    if (error instanceof ValidationError) {
+        const messages = error.errors.map(err => err.message);
+        return {
+            status: 400,
+            message: 'Error de validación',
+            errors: messages
+        };
+    }
+    return {
+        status: 500,
+        message: 'Error interno del servidor',
+        error: error.message
+    };
+};
 
 // ========================================
 // USUARIOS ACTIVOS
@@ -53,11 +73,49 @@ const getUsuarioById = async (req, res) => {
 const createUsuario = async (req, res) => {
     const { nombre, email, edad, password, rol } = req.body;
     try {
+        // Validación básica de campos requeridos
         if (!nombre || !email || !password) {
             return res.status(400).json({ 
                 status: 400, 
-                message: 'Faltan campos obligatorios (nombre, email, password)' 
+                message: 'Faltan campos obligatorios',
+                errors: [
+                    !nombre && 'El nombre es obligatorio',
+                    !email && 'El email es obligatorio',
+                    !password && 'La contraseña es obligatoria'
+                ].filter(Boolean)
             });
+        }
+
+        // Validación de formato de email con regex (más estricta)
+        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const emailTrimmed = email.trim().toLowerCase();
+        
+        if (!emailRegex.test(emailTrimmed)) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Formato de email inválido',
+                errors: ['El email debe tener un formato válido con @ y dominio completo (ejemplo: usuario@dominio.com)']
+            });
+        }
+
+        // Validación adicional de contraseña
+        if (password.length < 6) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Contraseña inválida',
+                errors: ['La contraseña debe tener al menos 6 caracteres']
+            });
+        }
+
+        // Validación de edad si se proporciona
+        if (edad !== undefined && edad !== null) {
+            if (typeof edad !== 'number' || edad < 18 || edad > 120) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Edad inválida',
+                    errors: ['La edad debe ser un número entre 18 y 120 años']
+                });
+            }
         }
 
         // Verificar si el email ya existe (incluyendo usuarios inactivos)
@@ -65,14 +123,16 @@ const createUsuario = async (req, res) => {
         if (existingUser) {
             return res.status(400).json({
                 status: 400,
-                message: 'El email ya está registrado'
+                message: 'Email duplicado',
+                errors: ['Este email ya está registrado en el sistema']
             });
         }
 
+        // Crear usuario
         const newUser = await Usuario.create({ 
             nombre, 
             email, 
-            edad,
+            edad: edad || null,
             password,
             rol: rol || 'cliente',
             activo: true
@@ -95,11 +155,10 @@ const createUsuario = async (req, res) => {
         });
     } catch (error) {
         console.error('Error al crear usuario:', error);
-        res.status(500).json({ 
-            status: 500, 
-            message: 'Error al crear usuario', 
-            error: error.message 
-        });
+        
+        // Manejar errores de validación de Sequelize
+        const errorResponse = handleValidationError(error);
+        res.status(errorResponse.status).json(errorResponse);
     }
 };
 
@@ -112,6 +171,7 @@ const updateUsuario = async (req, res) => {
                 activo: true 
             }
         });
+        
         if (!user) {
             return res.status(404).json({ 
                 status: 404, 
@@ -121,22 +181,79 @@ const updateUsuario = async (req, res) => {
 
         const { nombre, email, edad, password, rol } = req.body;
         
-        // Verificar si el email ya está en uso por otro usuario
-        if (email && email !== user.email) {
-            const existingUser = await Usuario.findOne({ where: { email } });
-            if (existingUser) {
+        // Validar email si se proporciona
+        if (email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
                 return res.status(400).json({
                     status: 400,
-                    message: 'El email ya está en uso'
+                    message: 'Formato de email inválido',
+                    errors: ['El email debe tener un formato válido (ejemplo: usuario@dominio.com)']
                 });
             }
-            user.email = email;
+
+            // Verificar si el email ya está en uso por otro usuario
+            if (email !== user.email) {
+                const existingUser = await Usuario.findOne({ where: { email } });
+                if (existingUser) {
+                    return res.status(400).json({
+                        status: 400,
+                        message: 'Email duplicado',
+                        errors: ['Este email ya está en uso por otro usuario']
+                    });
+                }
+                user.email = email;
+            }
         }
 
-        if (nombre) user.nombre = nombre;
-        if (edad !== undefined) user.edad = edad;
-        if (password) user.password = password; // El hook del modelo lo hasheará
-        if (rol) user.rol = rol;
+        // Validar nombre
+        if (nombre !== undefined) {
+            if (!nombre || nombre.trim().length < 2) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Nombre inválido',
+                    errors: ['El nombre debe tener al menos 2 caracteres']
+                });
+            }
+            user.nombre = nombre;
+        }
+
+        // Validar edad
+        if (edad !== undefined) {
+            if (edad !== null && (typeof edad !== 'number' || edad < 18 || edad > 120)) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Edad inválida',
+                    errors: ['La edad debe ser un número entre 18 y 120 años']
+                });
+            }
+            user.edad = edad;
+        }
+
+        // Validar contraseña
+        if (password) {
+            if (password.length < 6) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Contraseña inválida',
+                    errors: ['La contraseña debe tener al menos 6 caracteres']
+                });
+            }
+            user.password = password; // El hook del modelo lo hasheará
+        }
+
+        // Validar rol
+        if (rol) {
+            const rolesValidos = ['admin', 'agente', 'cliente'];
+            if (!rolesValidos.includes(rol)) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Rol inválido',
+                    errors: ['El rol debe ser: admin, agente o cliente']
+                });
+            }
+            user.rol = rol;
+        }
 
         await user.save();
 
@@ -157,11 +274,10 @@ const updateUsuario = async (req, res) => {
         });
     } catch (error) {
         console.error('Error al editar usuario:', error);
-        res.status(500).json({ 
-            status: 500, 
-            message: 'Error al editar usuario', 
-            error: error.message 
-        });
+        
+        // Manejar errores de validación de Sequelize
+        const errorResponse = handleValidationError(error);
+        res.status(errorResponse.status).json(errorResponse);
     }
 };
 

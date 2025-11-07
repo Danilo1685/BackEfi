@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const pdfRoutes = require('./routers/pdf.routes');
 
-require('dotenv').config();
+
 
 const app = express();
 
