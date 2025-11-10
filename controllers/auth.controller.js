@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { Usuario, Cliente } = require('../models');
 const { ValidationError } = require('sequelize');
+const { sendPasswordResetEmail, sendWelcomeEmail, sendPasswordChangedEmail } = require('../services/emailService');
 
 // Función auxiliar para manejar errores
 const handleValidationError = (error) => {
@@ -38,7 +39,7 @@ const register = async (req, res) => {
             });
         }
 
-        // ⭐ VALIDACIÓN DE FORMATO DE EMAIL CON REGEX (MÁS ESTRICTA)
+        // VALIDACIÓN DE FORMATO DE EMAIL CON REGEX (MÁS ESTRICTA)
         const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         const emailTrimmed = email.trim().toLowerCase();
         
@@ -100,6 +101,11 @@ const register = async (req, res) => {
             });
         }
 
+        // 📧 Enviar email de bienvenida (no bloqueante)
+        sendWelcomeEmail(emailTrimmed, name).catch(err => {
+            console.error('Error al enviar email de bienvenida:', err);
+        });
+
         // Generar token JWT
         const token = jwt.sign(
             { 
@@ -150,7 +156,7 @@ const login = async (req, res) => {
             });
         }
 
-        // ⭐ VALIDACIÓN DE FORMATO DE EMAIL
+        // VALIDACIÓN DE FORMATO DE EMAIL
         const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         const emailTrimmed = email.trim().toLowerCase();
         
@@ -273,5 +279,181 @@ const verifySession = async (req, res) => {
     }
 };
 
+// 📧 FORGOT PASSWORD - Solicitar recuperación de contraseña
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        // Validación de email
+        if (!email) {
+            return res.status(400).json({
+                status: 400,
+                message: 'El email es obligatorio',
+                errors: ['Debe proporcionar un email']
+            });
+        }
+
+        // Validación de formato de email
+        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const emailTrimmed = email.trim().toLowerCase();
+        
+        if (!emailRegex.test(emailTrimmed)) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Formato de email inválido',
+                errors: ['El email debe tener un formato válido con @ y dominio completo']
+            });
+        }
+
+        // Buscar usuario
+        const user = await Usuario.findOne({ 
+            where: { 
+                email: emailTrimmed,
+                activo: true 
+            } 
+        });
+
+        // Por seguridad, siempre devolver el mismo mensaje (no revelar si el usuario existe)
+        if (!user) {
+            return res.status(200).json({
+                status: 200,
+                message: 'Si el email existe, recibirás un enlace de recuperación'
+            });
+        }
+
+        // Generar token de recuperación (válido por 1 hora)
+        const resetToken = jwt.sign(
+            { id: user.id, email: user.email, purpose: 'reset-password' },
+            process.env.JWT_SECRET || 'secreto1234',
+            { expiresIn: '1h' }
+        );
+
+        // Construir el link de recuperación
+        const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}&id=${user.id}`;
+
+        // 📧 ENVIAR EMAIL REAL CON SENDGRID
+        try {
+            await sendPasswordResetEmail(emailTrimmed, resetLink, user.nombre);
+            
+            console.log('✅ Email de recuperación enviado a:', user.email);
+
+            res.status(200).json({
+                status: 200,
+                message: 'Si el email existe, recibirás un enlace de recuperación'
+            });
+
+        } catch (emailError) {
+            console.error('❌ Error al enviar email:', emailError);
+            
+            // Si falla el envío del email, devolver error específico
+            return res.status(500).json({
+                status: 500,
+                message: 'Error al enviar el email de recuperación',
+                error: 'Por favor, intenta nuevamente más tarde'
+            });
+        }
+
+    } catch (error) {
+        console.error('Error en forgotPassword:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Error al procesar la solicitud',
+            error: error.message
+        });
+    }
+};
+
+// 🔐 RESET PASSWORD - Cambiar contraseña con token
+const resetPassword = async (req, res) => {
+    const { token, password, id } = req.body;
+
+    try {
+        // Validaciones
+        if (!token || !password || !id) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Faltan datos obligatorios',
+                errors: ['Token, ID y nueva contraseña son obligatorios']
+            });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Contraseña inválida',
+                errors: ['La contraseña debe tener al menos 6 caracteres']
+            });
+        }
+
+        // Verificar token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'secreto1234');
+            
+            // Verificar que el token sea para reset de password
+            if (decoded.purpose !== 'reset-password') {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Token inválido',
+                    errors: ['El token no es válido para esta operación']
+                });
+            }
+
+            // Verificar que el ID coincida
+            if (decoded.id !== parseInt(id)) {
+                return res.status(400).json({
+                    status: 400,
+                    message: 'Token inválido',
+                    errors: ['El token no corresponde al usuario']
+                });
+            }
+        } catch (err) {
+            return res.status(400).json({
+                status: 400,
+                message: 'Token expirado o inválido',
+                errors: ['El enlace de recuperación ha expirado o no es válido']
+            });
+        }
+
+        // Buscar usuario
+        const user = await Usuario.findOne({
+            where: {
+                id: decoded.id,
+                email: decoded.email,
+                activo: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                status: 404,
+                message: 'Usuario no encontrado'
+            });
+        }
+
+        // Actualizar contraseña (el hook beforeUpdate la hasheará automáticamente)
+        user.password = password;
+        await user.save();
+
+        // 📧 Enviar email de confirmación (no bloqueante)
+        sendPasswordChangedEmail(user.email, user.nombre).catch(err => {
+            console.error('Error al enviar email de confirmación:', err);
+        });
+
+        res.status(200).json({
+            status: 200,
+            message: 'Contraseña actualizada exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error en resetPassword:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'Error al restablecer la contraseña',
+            error: error.message
+        });
+    }
+};
+
 // ✅ Exportar todas las funciones
-module.exports = { register, login, verifySession };
+module.exports = { register, login, verifySession, forgotPassword, resetPassword };
